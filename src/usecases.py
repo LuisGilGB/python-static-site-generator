@@ -28,6 +28,44 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type):
             result.append(TextNode(splits[i], this_type))
     return result
 
+def split_nodes_image(old_nodes):
+    result = []
+    for old_node in old_nodes:
+        matches = extract_markdown_images(old_node.text)
+        if len(matches) == 0:
+            result.append(old_node)
+            continue
+        pending_text = old_node.text
+        for match in matches:
+            formatted_match = f"![{match[0]}]({match[1]})"
+            splits = pending_text.split(formatted_match)
+            if splits[0] != "":
+                result.append(TextNode(splits[0], TextType.NORMAL))
+            result.append(TextNode(match[0], TextType.IMAGE, match[1]))
+            pending_text = splits[1]
+        if len(pending_text) > 0:
+            result.append(TextNode(pending_text, TextType.NORMAL))
+    return result
+
+def split_nodes_link(old_nodes):
+    result = []
+    for old_node in old_nodes:
+        matches = extract_markdown_links(old_node.text)
+        if len(matches) == 0:
+            result.append(old_node)
+            continue
+        pending_text = old_node.text
+        for match in matches:
+            formatted_match = f"[{match[0]}]({match[1]})"
+            splits = pending_text.split(formatted_match)
+            if splits[0] != "":
+                result.append(TextNode(splits[0], TextType.NORMAL))
+            result.append(TextNode(match[0], TextType.LINK, match[1]))
+            pending_text = splits[1]
+        if len(pending_text) > 0:
+            result.append(TextNode(pending_text, TextType.NORMAL))
+    return result
+
 def extract_markdown_images(text):
     return re.findall(r"!\[([^\[\]]*)\]\(([^\(\)]*)\)", text)
 
