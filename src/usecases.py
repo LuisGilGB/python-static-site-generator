@@ -1,4 +1,5 @@
 from textnode import TextType, TextNode
+from blocknode import BlockType
 from htmlnode import LeafNode
 import re
 
@@ -85,4 +86,34 @@ def text_to_textnodes(input):
     result = split_nodes_delimiter(result, '_', TextType.ITALIC)
     result = split_nodes_delimiter(result, '`', TextType.CODE)
     return result
+
+def markdown_to_blocks(md):
+    blocks = []
+    lines = md.split('\n\n')
+    for line in lines:
+        line = line.strip()
+        if line != "":
+            blocks.append(line)
+    return blocks
+
+def is_ordered_list(text):
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        expected_num = i + 1
+        if not re.match(f'^{expected_num}\\. ', line):
+            return False
+    return True
+
+def block_to_block_type(md_block):
+    if re.match(r'^#{1,6} ', md_block) is not None:
+        return BlockType.HEADING
+    if re.match(r'^```[\s\S]*```$', md_block, re.DOTALL) is not None:
+        return BlockType.CODE
+    if re.match(r'^> .*(\n>.*)*$', md_block) is not None:
+        return BlockType.QUOTE
+    if re.match(r'^- .*(\n- .*)*$', md_block) is not None:
+        return BlockType.UNORDERED_LIST
+    if is_ordered_list(md_block):
+        return BlockType.ORDERED_LIST
+    return BlockType.PARAGRAPH
 

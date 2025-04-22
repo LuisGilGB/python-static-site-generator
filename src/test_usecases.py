@@ -1,7 +1,8 @@
 import unittest
 
 from textnode import TextNode, TextType
-from usecases import text_node_to_html_node, split_nodes_delimiter, split_nodes_image, split_nodes_link, extract_markdown_links, extract_markdown_images, text_to_textnodes
+from blocknode import BlockType
+from usecases import text_node_to_html_node, split_nodes_delimiter, split_nodes_image, split_nodes_link, extract_markdown_links, extract_markdown_images, text_to_textnodes, markdown_to_blocks, block_to_block_type
 
 
 class TestTextToHTMLNode(unittest.TestCase):
@@ -330,6 +331,120 @@ class TestTextToTextNodes(unittest.TestCase):
             new_nodes,
         )
 
+class TestMarkdownToBlocks(unittest.TestCase):
+    def test_markdown_to_blocks(self):
+        md = """
+This is **bolded** paragraph
+
+This is another paragraph with _italic_ text and `code` here
+This is the same paragraph on a new line
+
+- This is a list
+- with items
+"""
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(
+            blocks,
+            [
+                "This is **bolded** paragraph",
+                "This is another paragraph with _italic_ text and `code` here\nThis is the same paragraph on a new line",
+                "- This is a list\n- with items",
+            ],
+        )
+
+    def test_markdown_to_blocks_strip_lines(self):
+        md = """
+ This is **bolded** paragraph
+
+This is another paragraph with _italic_ text and `code` here
+This is the same paragraph on a new line
+
+- This is a list
+- with items 
+"""
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(
+            blocks,
+            [
+                "This is **bolded** paragraph",
+                "This is another paragraph with _italic_ text and `code` here\nThis is the same paragraph on a new line",
+                "- This is a list\n- with items",
+            ],
+        )
+
+
+    def test_markdown_to_blocks_remove_excess_of_blank_lines(self):
+        md = """
+This is **bolded** paragraph
+
+
+This is another paragraph with _italic_ text and `code` here
+This is the same paragraph on a new line
+
+- This is a list
+- with items
+"""
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(
+            blocks,
+            [
+                "This is **bolded** paragraph",
+                "This is another paragraph with _italic_ text and `code` here\nThis is the same paragraph on a new line",
+                "- This is a list\n- with items",
+            ],
+        )
+
+class TestBlockToBlockType(unittest.TestCase):
+    def test_heading_blocks(self):
+        self.assertEqual(block_to_block_type("# Heading 1"), BlockType.HEADING)
+        self.assertEqual(block_to_block_type("## Heading 2"), BlockType.HEADING)
+        self.assertEqual(block_to_block_type("###### Heading 6"), BlockType.HEADING)
+        # Edge cases
+        self.assertNotEqual(block_to_block_type("#No space"), BlockType.HEADING)
+        self.assertNotEqual(block_to_block_type("####### Too many hashes"), BlockType.HEADING)
+
+    def test_code_blocks(self):
+        self.assertEqual(block_to_block_type("```\nprint('Hello')\n```"), BlockType.CODE)
+        self.assertEqual(block_to_block_type("```python\nprint('Hello')\n```"), BlockType.CODE)
+        # Edge cases
+        self.assertNotEqual(block_to_block_type("``` missing end"), BlockType.CODE)
+        self.assertNotEqual(block_to_block_type("missing start ```"), BlockType.CODE)
+
+    def test_quote_blocks(self):
+        self.assertEqual(block_to_block_type("> This is a quote"), BlockType.QUOTE)
+        self.assertEqual(block_to_block_type("> Line 1\n> Line 2"), BlockType.QUOTE)
+        # Edge cases
+        self.assertNotEqual(block_to_block_type(">Missing space"), BlockType.QUOTE)
+        self.assertNotEqual(block_to_block_type("> Line 1\nNot a quote"), BlockType.QUOTE)
+
+    def test_unordered_list_blocks(self):
+        self.assertEqual(block_to_block_type("- Item 1"), BlockType.UNORDERED_LIST)
+        self.assertEqual(block_to_block_type("- Item 1\n- Item 2\n- Item 3"), BlockType.UNORDERED_LIST)
+        # Edge cases
+        self.assertNotEqual(block_to_block_type("-No space"), BlockType.UNORDERED_LIST)
+        self.assertNotEqual(block_to_block_type("- Item 1\nNot a list item"), BlockType.UNORDERED_LIST)
+    
+    def test_ordered_list_blocks(self):
+        self.assertEqual(block_to_block_type("1. Item 1"), BlockType.ORDERED_LIST)
+        self.assertEqual(block_to_block_type("1. Item 1\n2. Item 2\n3. Item 3"), BlockType.ORDERED_LIST)
+        # Edge cases
+        self.assertNotEqual(block_to_block_type("1.No space"), BlockType.ORDERED_LIST)
+        self.assertNotEqual(block_to_block_type("2. Wrong first number"), BlockType.ORDERED_LIST)
+        self.assertNotEqual(block_to_block_type("1. Item 1\n3. Non-sequential"), BlockType.ORDERED_LIST)
+        self.assertNotEqual(block_to_block_type("1. Item 1\nNot a list item"), BlockType.ORDERED_LIST)
+
+    def test_paragraph_blocks(self):
+        self.assertEqual(block_to_block_type("This is a paragraph"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("Multi-line\nparagraph\ntext"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("Paragraph with # that isn't a heading"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("Paragraph with - that isn't a list"), BlockType.PARAGRAPH)
+
+        # Edge cases that should be paragraphs
+        self.assertEqual(block_to_block_type("#No space so not a heading"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("####### Too many hashes for heading"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("-No space so not a list"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("1.No space so not an ordered list"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("2. Doesn't start with 1 so not an ordered list"), BlockType.PARAGRAPH)
 
 if __name__ == "__main__":
     unittest.main()
