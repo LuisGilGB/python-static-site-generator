@@ -1,6 +1,6 @@
 from textnode import TextType, TextNode
 from blocknode import BlockType
-from htmlnode import LeafNode
+from htmlnode import LeafNode, ParentNode
 import re
 
 def text_node_to_html_node(text_node):
@@ -10,11 +10,13 @@ def text_node_to_html_node(text_node):
         case TextType.BOLD:
             return LeafNode("b", text_node.text)
         case TextType.ITALIC:
-            return LeafNode("I", text_node.text)
+            return LeafNode("i", text_node.text)
+        case TextType.CODE:
+            return LeafNode("code", text_node.text)
         case TextType.LINK:
             return LeafNode("a", text_node.text, { "href": text_node.url })
         case TextType.IMAGE:
-            return LeafNode("img", "", { "src": text_node.url, "alt": text_node.value })
+            return LeafNode("img", "", { "src": text_node.url, "alt": text_node.text })
         case _:
             raise ValueError("Unsupported text node")
 
@@ -117,3 +119,77 @@ def block_to_block_type(md_block):
         return BlockType.ORDERED_LIST
     return BlockType.PARAGRAPH
 
+def markdown_to_html_node(markdown):
+    blocks = markdown_to_blocks(markdown)
+    html_blocks = []
+    for block in blocks:
+        block_type = block_to_block_type(block)
+        html_block = block_node_to_html_node(block_type, block)
+        if html_block is not None:
+            html_blocks.append(html_block)
+    return ParentNode("div", html_blocks)
+
+def text_to_children(text):
+    children = []
+    text_nodes = text_to_textnodes(text)
+    for text_node in text_nodes:
+        html_node = text_node_to_html_node(text_node)
+        children.append(html_node)
+    return children
+
+def block_node_to_html_node(block_type, content):
+    if block_type == BlockType.CODE:
+        lines = content.strip().split('\n')
+        if lines[0].startswith('```'):
+            # Remove language if present
+            if len(lines[0]) > 3:
+                lines = lines[1:]
+            else:
+                lines = lines[1:]
+        if lines and lines[-1].startswith('```'):
+            lines = lines[:-1]
+        code_text = '\n'.join(lines)
+        return ParentNode("pre", [LeafNode("code", code_text)])
+
+    if block_type == BlockType.HEADING:
+        heading_level = 0
+        for char in content:
+            if char == '#':
+                heading_level += 1
+            else:
+                break
+        # Must be followed by a space
+        if len(content) > heading_level and content[heading_level] == ' ':
+            heading_text = content[heading_level+1:].strip()
+            return ParentNode(f"h{heading_level}", text_to_children(heading_text))
+        else:
+            # Not a valid heading, treat as paragraph
+            return ParentNode("p", text_to_children(content.strip()))
+
+    if block_type == BlockType.QUOTE:
+        lines = content.splitlines()
+        clean_lines = [line[2:] if line.startswith('> ') else (line[1:] if line.startswith('>') else line) for line in lines]
+        clean_text = '\n'.join(clean_lines)
+        return ParentNode("blockquote", text_to_children(clean_text))
+
+    if block_type == BlockType.UNORDERED_LIST:
+        lines = content.splitlines()
+        items = [line[2:] if line.startswith('- ') else line for line in lines if line.strip().startswith('-')]
+        if not items:
+            return None
+        li_nodes = [ParentNode('li', text_to_children(item.strip())) for item in items]
+        return ParentNode("ul", li_nodes)
+
+    if block_type == BlockType.ORDERED_LIST:
+        lines = content.splitlines()
+        items = [re.sub(r'^\d+\. ', '', line).strip() for line in lines if re.match(r'^\d+\. ', line)]
+        if not items:
+            return None
+        li_nodes = [ParentNode('li', text_to_children(item)) for item in items]
+        return ParentNode("ol", li_nodes)
+
+    if block_type == BlockType.PARAGRAPH:
+        content = ' '.join(content.split('\n'))
+        return ParentNode("p", text_to_children(content.strip()))
+
+    raise ValueError("Unsupported block type")
