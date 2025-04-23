@@ -2,7 +2,7 @@ import unittest
 
 from textnode import TextNode, TextType
 from blocknode import BlockType
-from usecases import text_node_to_html_node, split_nodes_delimiter, split_nodes_image, split_nodes_link, extract_markdown_links, extract_markdown_images, text_to_textnodes, markdown_to_blocks, block_to_block_type, markdown_to_html_node
+from usecases import text_node_to_html_node, split_nodes_delimiter, split_nodes_image, split_nodes_link, extract_markdown_links, extract_markdown_images, text_to_textnodes, markdown_to_blocks, block_to_block_type, markdown_to_html_node, extract_title
 
 
 class TestTextToHTMLNode(unittest.TestCase):
@@ -523,6 +523,28 @@ the **same** even with inline stuff
             html,
             "<div><h1>Title</h1><p>Paragraph text here.</p><ul><li>List item 1</li><li>List item 2</li></ul><blockquote>Quote block</blockquote><ol><li>First</li><li>Second</li></ol></div>",
         )
+
+
+class TestExtractTitle(unittest.TestCase):
+    def test_extract_title(self):
+        md = "# Title"
+        title = extract_title(md)
+        self.assertEqual(title, "Title")
+
+    def test_extract_title_with_newline(self):
+        md = "# Title\n"
+        title = extract_title(md)
+        self.assertEqual(title, "Title")
+
+    def test_no_title(self):
+        md = "# Not a title"
+        with self.assertRaises(Exception):
+            extract_title(md)
+    
+    def test_many_lines(self):
+        md = "> A quote\n\n# Title\n\nParagraph text here."
+        title = extract_title(md)
+        self.assertEqual(title, "Title")
 
 if __name__ == "__main__":
     unittest.main()
