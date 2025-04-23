@@ -1,6 +1,7 @@
 from os import path, listdir, mkdir
 from shutil import copy, rmtree
 from usecases import generate_page
+import sys
 
 def copy_files_recursively(source_dir, destination_dir):
     if not path.exists(source_dir):
@@ -24,7 +25,7 @@ def copy_files_recursively(source_dir, destination_dir):
     recursive_copy(source_dir, destination_dir)
 
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath):
     if not path.exists(dir_path_content):
         print(f"Content directory {dir_path_content} does not exist")
         raise FileNotFoundError("Content directory does not exist")
@@ -32,17 +33,18 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
     for entry in entries:
         if path.isfile(path.join(dir_path_content, entry)):
             new_name = path.join(dest_dir_path, entry.replace(".md", ".html"))
-            generate_page(path.join(dir_path_content, entry), template_path, new_name)
+            generate_page(path.join(dir_path_content, entry), template_path, new_name, basepath)
         else:
             if not path.exists(path.join(dest_dir_path, entry)):
                 mkdir(path.join(dest_dir_path, entry))
-            generate_pages_recursive(path.join(dir_path_content, entry), template_path, path.join(dest_dir_path, entry))
+            generate_pages_recursive(path.join(dir_path_content, entry), template_path, path.join(dest_dir_path, entry), basepath)
 
 def main():
+    basepath = sys.argv[1] if len(sys.argv) > 1 else "/"
     source_dir = "static"
-    destination_dir = "public"
+    destination_dir = "docs"
     copy_files_recursively(source_dir, destination_dir)
-    generate_pages_recursive("content", "template.html", "public")
+    generate_pages_recursive("content", "template.html", destination_dir, basepath)
 
 
 main()
